@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DLCheckout.Application.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -6,17 +7,38 @@ namespace DLCheckout.Application.Features.ShoppingCart
 {
     public class SimpleShoppingCart : IShoppingCart
     {
-        private List<string> _items = new List<string>();
+        private List<int> _itemIds = new List<int>();
+        private readonly IProductService _productService;
+
+        public SimpleShoppingCart(IProductService productService)
+        {
+            _productService = productService;
+        }
 
         public decimal GetTotal()
         {
-            var applesCount = _items.Count((x => x == "Apple"));
-            var orangesCount = _items.Count(x => x == "Orange");
+            var itemFrequency = _itemIds.GroupBy(x => x).ToDictionary(x => x.Key, x => x.Count());
 
-            var applesCostWithOffersApplied = GetCostWithOffer(2, 1, 0.6M, applesCount);
-            var orangesTotalCostWithOffersApplied = GetCostWithOffer(3, 2, 0.25M, orangesCount);
+            var runningTotal = 0M;
+            foreach (var itemIdFrequency in itemFrequency)
+            {
+                var product = _productService.GetAsync().GetAwaiter().GetResult().Single(x => x.Id == itemIdFrequency.Key);
+                int buyN = 2;
+                int payForN = 1;
 
-            return applesCostWithOffersApplied + orangesTotalCostWithOffersApplied;
+                // nasty, breaks easily, but we can get away with it for now
+                // since we only have the two products, it's either 3 for 2, or 2 for 1
+                if (product.Name == "Orange")
+                {
+                    buyN = 3;
+                    payForN = 2;
+                }
+
+                var itemTotal = GetCostWithOffer(buyN, payForN, product.UnitCost, itemIdFrequency.Value);
+                runningTotal += itemTotal;
+            }
+
+            return runningTotal;
         }
 
         private decimal GetCostWithOffer(int getNumberOfItems, int forCostOfNumberOfItems, decimal unitCost, int numberOfItems)
@@ -32,44 +54,34 @@ namespace DLCheckout.Application.Features.ShoppingCart
             return itemsToChargeFor * unitCost;
         }
 
-        public IEnumerable<string> GetItems()
+        public IEnumerable<int> GetItemIds()
         {
-            return _items;
+            return _itemIds;
         }
 
-        public void AddItem(string item)
+        public void AddItemById(int itemId)
         {
-            AddInternal(item);
+            AddInternal(itemId);
         }
 
-        public void AddItems(IEnumerable<string> items)
+        public void AddItemsById(IEnumerable<int> itemIds)
         {
-            foreach (var item in items)
+            foreach (var itemId in itemIds)
             {
-                AddInternal(item);
+                AddInternal(itemId);
             }
         }
 
-        private void AddInternal(string item)
+        private void AddInternal(int itemId)
         {
-            item = item.ToUpper();
-            switch (item)
+            var products = _productService.GetAsync().GetAwaiter().GetResult();
+
+            if (!products.Any(x => x.Id == itemId))
             {
-                case "APPLE":
-                    {
-                        _items.Add("Apple");
-                        return;
-                    }
-                case "ORANGE":
-                    {
-                        _items.Add("Orange");
-                        return;
-                    }
-                default:
-                    {
-                        throw new ArgumentException($"{item} cannot be converted into a recognised product");
-                    }
+                throw new ArgumentException($"{itemId} cannot be converted into a recognised product");
             }
+
+            _itemIds.Add(itemId);
         }
     }
 }

@@ -1,39 +1,22 @@
-﻿using DLCheckout.Application.Features.ShoppingCart;
-using System;
-using System.Collections.Generic;
+﻿using DLCheckout.Persistence;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace DLCheckout.ConsoleApp
 {
     class Program
     {
-       private static List<string> ExampleCartItems => new(){ "Apple", "Apple", "Orange", "Apple" };
-
         static void Main(string[] args)
         {
-            var cart = new SimpleShoppingCart();
+            var host = Host.CreateDefaultBuilder()
+                .ConfigureServices((context, services) => 
+                {
+                    services.AddPersistence();
+                })
+                .Build();
 
-            try
-            {
-                cart.AddItems((ExampleCartItems));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Unable to add items to cart: {ex.Message}");
-                Console.WriteLine("Exiting application.");
-                PressAnyKey();
-                return;
-            }
-
-            var cartTotal = cart.GetTotal();
-            Console.WriteLine($"Cart total is: £{cartTotal}");
-
-            PressAnyKey();
-        }
-
-        private static void PressAnyKey()
-        {
-            Console.Write("Press any key to continue...");
-            Console.ReadKey();
+            var svc = ActivatorUtilities.CreateInstance<CheckoutService>(host.Services);
+            svc.Run();
         }
     }
 }
