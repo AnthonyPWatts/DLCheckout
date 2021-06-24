@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DLCheckout.Application.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -6,70 +7,74 @@ namespace DLCheckout.Application.Features.ShoppingCart
 {
     public class SimpleShoppingCart : IShoppingCart
     {
-        private List<string> _items = new List<string>();
+        private List<int> _itemIds = new List<int>();
+        private readonly IProductService _productService;
+        private readonly IProductOfferService _productOfferService;
+
+        public SimpleShoppingCart(IProductService productService, IProductOfferService productOfferService)
+        {
+            _productService = productService;
+            _productOfferService = productOfferService;
+        }
 
         public decimal GetTotal()
         {
-            var applesCount = _items.Count((x => x == "Apple"));
-            var orangesCount = _items.Count(x => x == "Orange");
+            var itemFrequency = _itemIds.GroupBy(x => x).ToDictionary(x => x.Key, x => x.Count());
 
-            var applesCostWithOffersApplied = GetCostWithOffer(2, 1, 0.6M, applesCount);
-            var orangesTotalCostWithOffersApplied = GetCostWithOffer(3, 2, 0.25M, orangesCount);
-
-            return applesCostWithOffersApplied + orangesTotalCostWithOffersApplied;
-        }
-
-        private decimal GetCostWithOffer(int getNumberOfItems, int forCostOfNumberOfItems, decimal unitCost, int numberOfItems)
-        {
-            if (getNumberOfItems == 0)
+            var runningTotal = 0M;
+            foreach (var itemIdFrequency in itemFrequency)
             {
-                throw new ArgumentException("An offer cannot be to get zero items", nameof(getNumberOfItems));
+                var itemTotal = GetCostWithOffer(itemIdFrequency.Key, itemIdFrequency.Value);
+                runningTotal += itemTotal;
             }
 
-            int itemsToChargeFor = (numberOfItems / getNumberOfItems) * forCostOfNumberOfItems;
-            itemsToChargeFor += numberOfItems % getNumberOfItems;
-
-            return itemsToChargeFor * unitCost;
+            return runningTotal;
         }
 
-        public IEnumerable<string> GetItems()
+        private decimal GetCostWithOffer(int itemId, int numberOfItems)
         {
-            return _items;
-        }
+            var product = _productService.GetAsync().GetAwaiter().GetResult().Single(x => x.Id == itemId);
+            var offer = _productOfferService.GetAsync().GetAwaiter().GetResult().SingleOrDefault(o => o.ProductId == itemId);
 
-        public void AddItem(string item)
-        {
-            AddInternal(item);
-        }
-
-        public void AddItems(IEnumerable<string> items)
-        {
-            foreach (var item in items)
+            if (offer == null)
             {
-                AddInternal(item);
+                return product.UnitCost * numberOfItems;
+            }
+
+            int itemsToChargeFor = (numberOfItems / offer.BuyXNumber) * offer.PayForYNumber;
+            itemsToChargeFor += numberOfItems % offer.BuyXNumber;
+
+            return itemsToChargeFor * product.UnitCost;
+        }
+
+        public IEnumerable<int> GetItemIds()
+        {
+            return _itemIds;
+        }
+
+        public void AddItemById(int itemId)
+        {
+            AddInternal(itemId);
+        }
+
+        public void AddItemsById(IEnumerable<int> itemIds)
+        {
+            foreach (var itemId in itemIds)
+            {
+                AddInternal(itemId);
             }
         }
 
-        private void AddInternal(string item)
+        private void AddInternal(int itemId)
         {
-            item = item.ToUpper();
-            switch (item)
+            var products = _productService.GetAsync().GetAwaiter().GetResult();
+
+            if (!products.Any(x => x.Id == itemId))
             {
-                case "APPLE":
-                    {
-                        _items.Add("Apple");
-                        return;
-                    }
-                case "ORANGE":
-                    {
-                        _items.Add("Orange");
-                        return;
-                    }
-                default:
-                    {
-                        throw new ArgumentException($"{item} cannot be converted into a recognised product");
-                    }
+                throw new ArgumentException($"{itemId} cannot be converted into a recognised product");
             }
+
+            _itemIds.Add(itemId);
         }
     }
 }
