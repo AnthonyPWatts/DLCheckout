@@ -12,7 +12,24 @@ namespace DLCheckout.Application.Features.ShoppingCart
         {
             var applesCount = _items.Count((x => x == "Apple"));
             var orangesCount = _items.Count(x => x == "Orange");
-            return (applesCount * 0.6M) + (orangesCount * 0.25M);
+
+            var applesCostWithOffersApplied = GetCostWithOffer(2, 1, 0.6M, applesCount);
+            var orangesTotalCostWithOffersApplied = GetCostWithOffer(3, 2, 0.25M, orangesCount);
+
+            return applesCostWithOffersApplied + orangesTotalCostWithOffersApplied;
+        }
+
+        private decimal GetCostWithOffer(int getNumberOfItems, int forCostOfNumberOfItems, decimal unitCost, int numberOfItems)
+        {
+            if (getNumberOfItems == 0)
+            {
+                throw new ArgumentException("An offer cannot be to get zero items", nameof(getNumberOfItems));
+            }
+
+            int itemsToChargeFor = (numberOfItems / getNumberOfItems) * forCostOfNumberOfItems;
+            itemsToChargeFor += numberOfItems % getNumberOfItems;
+
+            return itemsToChargeFor * unitCost;
         }
 
         public IEnumerable<string> GetItems()
