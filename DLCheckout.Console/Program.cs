@@ -1,4 +1,5 @@
-﻿using DLCheckout.Persistence;
+﻿using DLCheckout.Application;
+using DLCheckout.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -11,11 +12,12 @@ namespace DLCheckout.ConsoleApp
             var host = Host.CreateDefaultBuilder()
                 .ConfigureServices((context, services) => 
                 {
+                    services.AddAppliation();
                     services.AddPersistence();
                 })
                 .Build();
 
-            var svc = ActivatorUtilities.CreateInstance<CheckoutService>(host.Services);
+            var svc = ActivatorUtilities.CreateInstance<CheckoutFrontend>(host.Services);
             svc.Run();
         }
     }

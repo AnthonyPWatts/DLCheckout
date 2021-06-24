@@ -9,10 +9,12 @@ namespace DLCheckout.Application.Features.ShoppingCart
     {
         private List<int> _itemIds = new List<int>();
         private readonly IProductService _productService;
+        private readonly IProductOfferService _productOfferService;
 
-        public SimpleShoppingCart(IProductService productService)
+        public SimpleShoppingCart(IProductService productService, IProductOfferService productOfferService)
         {
             _productService = productService;
+            _productOfferService = productOfferService;
         }
 
         public decimal GetTotal()
@@ -22,36 +24,27 @@ namespace DLCheckout.Application.Features.ShoppingCart
             var runningTotal = 0M;
             foreach (var itemIdFrequency in itemFrequency)
             {
-                var product = _productService.GetAsync().GetAwaiter().GetResult().Single(x => x.Id == itemIdFrequency.Key);
-                int buyN = 2;
-                int payForN = 1;
-
-                // nasty, breaks easily, but we can get away with it for now
-                // since we only have the two products, it's either 3 for 2, or 2 for 1
-                if (product.Name == "Orange")
-                {
-                    buyN = 3;
-                    payForN = 2;
-                }
-
-                var itemTotal = GetCostWithOffer(buyN, payForN, product.UnitCost, itemIdFrequency.Value);
+                var itemTotal = GetCostWithOffer(itemIdFrequency.Key, itemIdFrequency.Value);
                 runningTotal += itemTotal;
             }
 
             return runningTotal;
         }
 
-        private decimal GetCostWithOffer(int getNumberOfItems, int forCostOfNumberOfItems, decimal unitCost, int numberOfItems)
+        private decimal GetCostWithOffer(int itemId, int numberOfItems)
         {
-            if (getNumberOfItems == 0)
+            var product = _productService.GetAsync().GetAwaiter().GetResult().Single(x => x.Id == itemId);
+            var offer = _productOfferService.GetAsync().GetAwaiter().GetResult().SingleOrDefault(o => o.ProductId == itemId);
+
+            if (offer == null)
             {
-                throw new ArgumentException("An offer cannot be to get zero items", nameof(getNumberOfItems));
+                return product.UnitCost * numberOfItems;
             }
 
-            int itemsToChargeFor = (numberOfItems / getNumberOfItems) * forCostOfNumberOfItems;
-            itemsToChargeFor += numberOfItems % getNumberOfItems;
+            int itemsToChargeFor = (numberOfItems / offer.BuyXNumber) * offer.PayForYNumber;
+            itemsToChargeFor += numberOfItems % offer.BuyXNumber;
 
-            return itemsToChargeFor * unitCost;
+            return itemsToChargeFor * product.UnitCost;
         }
 
         public IEnumerable<int> GetItemIds()

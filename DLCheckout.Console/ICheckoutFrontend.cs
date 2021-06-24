@@ -1,6 +1,6 @@
 ﻿namespace DLCheckout.ConsoleApp
 {
-    internal interface ICheckoutService
+    internal interface ICheckoutFrontend
     {
         public void Run();
     }

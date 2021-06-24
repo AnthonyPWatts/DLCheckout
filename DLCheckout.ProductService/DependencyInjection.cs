@@ -9,6 +9,7 @@ namespace DLCheckout.Persistence
         {
 
             services.AddSingleton<IProductService, ProductService>();
+            services.AddSingleton<IProductOfferService, ProductOfferService>();
         }
     }
 }
